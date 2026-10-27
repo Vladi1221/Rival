@@ -125,6 +125,14 @@ h1 { margin-bottom: 8px; color: #f7f7f6; font-size: clamp(32px, 3.2vw, 43px); fo
 .story-name { max-width: 60px; overflow: hidden; color: #aaa9ab; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
 .feed-heading { display: flex; align-items: center; justify-content: space-between; margin: 0 1px 10px; }
 .social-feed { display: grid; gap: 23px; }
+.post-composer { margin-bottom: 20px; padding: 15px; border-color: #3a3334; background: linear-gradient(135deg, #191718, #131314 70%); }
+.post-composer > p:not(.eyebrow) { margin: 0 0 12px; color: #aaa5a6; font-size: 9px; line-height: 1.6; }
+.composer-heading { display: flex; align-items: center; gap: 10px; }
+.composer-heading .avatar { width: 34px; height: 34px; font-size: 9px; }
+.composer-heading .eyebrow { margin: 0 0 4px; font-size: 7px; }
+.composer-heading h2 { margin: 0; color: #efeded; font-family: var(--display); font-size: 17px; font-weight: 600; }
+.composer-form { margin-top: 13px; }
+.composer-form select { width: 100%; }
 .social-post { overflow: hidden; border-bottom: 1px solid #303032; background: #111112; animation: post-enter .35s var(--ease) both; }
 .social-post:nth-child(2) { animation-delay: .06s; }
 .social-post:nth-child(3) { animation-delay: .12s; }

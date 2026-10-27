@@ -19,6 +19,7 @@ RIVAL es una plataforma social de desafíos personales y competencia saludable, 
 - **Inicio social:** historias de muestra, publicaciones de actividad y accesos rápidos.
 - **Desafíos:** catálogo por categoría y duración, dificultad, progreso y recompensas ilustrativas.
 - **Ranking y perfiles:** secciones de navegación para consultar la clasificación y el perfil.
+- **Publicaciones con Supabase:** las personas autenticadas pueden compartir texto e imágenes públicas, opcionalmente vinculadas a un desafío.
 - **Demo local:** permite recorrer la interfaz sin crear una cuenta. El contenido es de muestra y el estado de demostración se guarda en el navegador; no representa actividad compartida ni persistencia en un servidor.
 - **Integración con Supabase:** el cliente y el esquema de base de datos habilitan autenticación, datos persistentes, almacenamiento privado y funciones sociales cuando se configuran.
 
@@ -64,12 +65,13 @@ El esquema activa RLS y protege el acceso a los datos y las evidencias. La clave
 - Participación y abandono de desafíos, además del registro de días para retos que no requieren evidencia.
 - Envío de evidencias privadas JPG, PNG, WebP, MP4 o PDF (hasta 20 MB) para revisión.
 - Me gusta, publicaciones guardadas, seguimientos y comentarios, sujetos a las políticas de acceso de la base de datos.
+- Creación de publicaciones públicas con texto, imagen JPG, PNG o WebP (hasta 10 MB) y vínculo opcional a un desafío activo.
 
 Las recompensas sujetas a evidencia dependen de la aprobación de una persona revisora autorizada. El esquema permite esa revisión, pero todavía no hay una interfaz de administración de revisores.
 
 ## Estado del proyecto
 
-RIVAL está en desarrollo. Sin Supabase, las cuentas, publicaciones y estadísticas de la demo no son datos reales ni se sincronizan entre dispositivos. Aún falta conectar la creación de desafíos y publicaciones, las historias, las notificaciones y los filtros avanzados del ranking (por región, período o categoría).
+RIVAL está en desarrollo. Sin Supabase, las cuentas, publicaciones y estadísticas de la demo no son datos reales ni se sincronizan entre dispositivos. Aún falta conectar la creación de desafíos, las historias, las notificaciones y los filtros avanzados del ranking (por región, período o categoría).
 
 ## Estructura
 

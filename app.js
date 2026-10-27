@@ -1,6 +1,8 @@
 import { getSupabaseError, isSupabaseConfigured, supabase } from "./supabase.js";
 
 const STORAGE_KEY = "rival-demo-state-v1";
+const POST_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const POST_IMAGE_MAX_SIZE = 10 * 1024 * 1024;
 
 const challenges = [
   {
@@ -506,6 +508,26 @@ function renderStory(story) {
   </button>`;
 }
 
+function renderPostComposer() {
+  if (!isSupabaseConfigured) return "";
+  if (!currentSession) {
+    return `<section class="panel post-composer"><p class="eyebrow">COMPARTÍ TU PROGRESO</p><p>Iniciá sesión para publicar un avance en la comunidad.</p><button class="button button-primary" data-action="open-auth">Conectar cuenta</button></section>`;
+  }
+  const challengeOptions = (backendChallenges ?? [])
+    .map((challenge) => `<option value="${challenge.id}">${escapeHtml(challenge.title)}</option>`)
+    .join("");
+  return `<section class="panel post-composer" aria-labelledby="post-composer-title">
+    <div class="composer-heading"><span class="avatar">${escapeHtml(currentProfile?.display_name.slice(0, 2).toUpperCase() ?? "R")}</span><div><p class="eyebrow">COMUNIDAD · RIVAL</p><h2 id="post-composer-title">¿Qué avance querés compartir?</h2></div></div>
+    <form class="auth-form composer-form" data-form="post">
+      <label>Tu publicación<textarea name="caption" maxlength="2200" rows="3" placeholder="Un paso a la vez también es progreso."></textarea></label>
+      <label>Imagen (opcional)<input name="image" type="file" accept="image/jpeg,image/png,image/webp" /><small>JPG, PNG o WebP · máximo 10 MB. La publicación será pública.</small></label>
+      ${challengeOptions ? `<label>Desafío relacionado (opcional)<select name="challenge_id" class="filter-select"><option value="">Sin desafío</option>${challengeOptions}</select></label>` : ""}
+      <button class="button button-primary auth-submit" type="submit">Publicar avance</button>
+      <p class="auth-feedback" aria-live="polite"></p>
+    </form>
+  </section>`;
+}
+
 function renderPost(post) {
   const liked = likedPostIds.has(post.id);
   const likes = (postLikeCounts.get(post.id) ?? post.likes) + (liked && !post.isReal ? 1 : 0);
@@ -547,7 +569,7 @@ function renderPost(post) {
       <button class="post-save${savedPostIds.has(post.id) ? " is-saved" : ""}" data-action="save-post" data-id="${post.id}" aria-pressed="${savedPostIds.has(post.id)}" aria-label="${savedPostIds.has(post.id) ? "Quitar de guardados" : "Guardar publicación"}">${icon("bookmark")}</button>
     </div>
     <div class="post-body"><strong class="post-likes">${likes} me gusta${post.isReal ? "" : " · demo"}</strong>
-      <p><strong>${escapeHtml(post.name)}</strong> ${escapeHtml(post.caption)}</p>
+      ${post.caption ? `<p><strong>${escapeHtml(post.name)}</strong> ${escapeHtml(post.caption)}</p>` : ""}
       <button class="post-comments" data-action="show-comments" data-id="${post.id}">${post.isReal ? `Ver ${post.comments} comentarios` : `Ver los ${post.comments} comentarios de muestra`}</button>
       ${post.isReal ? (post.challenge ? `<div class="post-real-challenge"><span>DESAFÍO</span><strong>${escapeHtml(post.challenge)}</strong></div>` : "") : '<span class="post-demo-label">PUBLICACIÓN ILUSTRATIVA · NO ES CONTENIDO DE USUARIOS REALES</span>'}
     </div>
@@ -591,6 +613,7 @@ function renderSocialFeed(isHome) {
     <div class="social-layout">
       <section class="social-main">
         <div class="social-heading"><div><p class="eyebrow">${isHome ? todayLabel() : "RIVAL · COMUNIDAD"}</p><h1>${isHome ? "Tu espacio." : "Comunidad."}</h1></div><button class="button button-primary" data-view="desafios">Encontrá tu próximo reto <span aria-hidden="true">↗</span></button></div>
+        ${renderPostComposer()}
         ${storyItems}
         <div class="feed-heading"><h2>Para inspirarte</h2><span>${isSupabaseConfigured ? "PUBLICACIONES PÚBLICAS" : "PUBLICACIONES DE MUESTRA"}</span></div>
         <div class="social-feed">${feedItems}</div>
@@ -755,6 +778,78 @@ async function submitEvidenceForm(form) {
     }
     feedback.textContent = uploaded && !hasResponseCode
       ? `No pudimos confirmar la entrega. Revisá el estado del desafío antes de volver a enviarla. ${getSupabaseError(error)}`
+      : getSupabaseError(error);
+    feedback.classList.add("is-error");
+  } finally {
+    if (button.isConnected) button.disabled = false;
+  }
+}
+
+async function submitPostForm(form) {
+  if (!supabase || !currentSession) {
+    showAuth();
+    return;
+  }
+  const values = new FormData(form);
+  const caption = String(values.get("caption") ?? "").trim();
+  const image = form.querySelector('input[name="image"]').files?.[0] ?? null;
+  const challengeId = String(values.get("challenge_id") ?? "");
+  const feedback = form.querySelector(".auth-feedback");
+  const button = form.querySelector('[type="submit"]');
+  if (!caption && !image) {
+    feedback.textContent = "Escribí una publicación o elegí una imagen.";
+    feedback.classList.add("is-error");
+    return;
+  }
+  if (caption.length > 2200) {
+    feedback.textContent = "La publicación no puede superar los 2200 caracteres.";
+    feedback.classList.add("is-error");
+    return;
+  }
+  if (image && (!POST_IMAGE_TYPES.includes(image.type) || image.size > POST_IMAGE_MAX_SIZE)) {
+    feedback.textContent = "Usá una imagen JPG, PNG o WebP de hasta 10 MB.";
+    feedback.classList.add("is-error");
+    return;
+  }
+  button.disabled = true;
+  feedback.textContent = image ? "Subiendo imagen y publicando…" : "Publicando…";
+  feedback.classList.remove("is-error");
+  let imagePath = null;
+  let uploaded = false;
+  let insertStarted = false;
+  try {
+    if (image) {
+      const safeName = image.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-100);
+      imagePath = `${currentSession.user.id}/${crypto.randomUUID()}-${safeName}`;
+      const { error } = await supabase.storage.from("post-images")
+        .upload(imagePath, image, { contentType: image.type, upsert: false });
+      if (error) throw error;
+      uploaded = true;
+    }
+    insertStarted = true;
+    const { error } = await supabase.from("posts").insert({
+      author_id: currentSession.user.id,
+      caption,
+      image_path: imagePath,
+      challenge_id: challengeId || null,
+      visibility: "public",
+    });
+    if (error) throw error;
+    showToast("Publicación compartida con la comunidad.");
+    await refreshBackendView();
+  } catch (error) {
+    console.error("No se pudo crear la publicación.", error);
+    const hasResponseCode = typeof error === "object" && error !== null && "code" in error;
+    if (uploaded && hasResponseCode && imagePath) {
+      try {
+        const { error: cleanupError } = await supabase.storage.from("post-images").remove([imagePath]);
+        if (cleanupError) console.error("No se pudo limpiar la imagen sin publicación.", cleanupError);
+      } catch (cleanupError) {
+        console.error("No se pudo limpiar la imagen sin publicación.", cleanupError);
+      }
+    }
+    feedback.textContent = uploaded && insertStarted && !hasResponseCode
+      ? `No pudimos confirmar la publicación. Revisá el feed antes de volver a intentarlo. ${getSupabaseError(error)}`
       : getSupabaseError(error);
     feedback.classList.add("is-error");
   } finally {
@@ -1109,6 +1204,8 @@ document.addEventListener("submit", (event) => {
     void submitEvidenceForm(form);
   } else if (form.dataset.form === "comment") {
     void submitCommentForm(form);
+  } else if (form.dataset.form === "post") {
+    void submitPostForm(form);
   }
 });
 
